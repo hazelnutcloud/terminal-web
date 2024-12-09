@@ -1,6 +1,9 @@
 <script lang="ts">
+	import WalletProvider from '$lib/wallet/wallet-provider.svelte';
 	import '../app.css';
 	let { children } = $props();
 </script>
 
-{@render children()}
+<WalletProvider>
+	{@render children()}
+</WalletProvider>

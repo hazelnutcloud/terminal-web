@@ -4,6 +4,9 @@ import { FitAddon } from "@xterm/addon-fit";
 import chalk from "chalk";
 import type { Action } from "svelte/action";
 import { command as brocli, run, type BroCliConfig } from "@drizzle-team/brocli"
+import { reconnect } from "@wagmi/core";
+import { truncateAddress } from "./utils/format";
+import type { WalletContext } from "./wallet/wallet-provider.svelte";
 
 const theme = {
   foreground: '#a6accd',
@@ -27,7 +30,7 @@ const theme = {
   brightWhite: '#ffffff'
 }
 
-export const terminal: Action = (node) => {
+export const terminal: Action<HTMLElement, { walletContext: WalletContext }> = (node, { walletContext }) => {
   const term = new Terminal({
     cursorBlink: true,
     fontFamily: '"Kode Mono", monospace',
@@ -43,16 +46,27 @@ export const terminal: Action = (node) => {
 
   const commands = [
     brocli({
-      name: "connect",
+      name: "wallet",
+      desc: "connect and manage wallet.",
       handler: () => {
-        console.log("Connecting Wallet")
+        console.log("opened wallet modal.")
+        walletContext.modal.open()
       },
-
+    }),
+    brocli({
+      name: "mint",
+      desc: "mint an NFT.",
+      handler: async () => {
+        console.log("minting..")
+        await new Promise((resolve) => {
+          setTimeout(() => resolve(null), 2000)
+        })
+      }
     })
   ]
 
   const prompt = () => {
-    term.writeln(chalk.blue("\r\nanon"))
+    term.writeln(chalk.blue(`\r\n${walletContext.account.address ? truncateAddress(walletContext.account.address) : "anon"}`))
     term.write(chalk.magenta("> "))
   }
 
@@ -62,10 +76,11 @@ export const terminal: Action = (node) => {
       term.writeln('')
       await run(commands, {
         argSource: ["", "", ...args],
-        noExit: true
+        noExit: true,
+        version: "0.0.1"
       } as BroCliConfig)
     }
-    term.writeln('')
+    term.writeln("")
     prompt()
   }
 
@@ -87,9 +102,11 @@ export const terminal: Action = (node) => {
   term.writeln(chalk.blue("   \\ \\_\\     /\\___/                           "))
   term.writeln(chalk.blue("    \\/_/     \\/__/                            "))
   term.writeln("")
-  term.writeln(chalk.green("enter `--help` to get started."))
+  term.writeln(chalk.green("enter `help` to get started."))
 
-  prompt()
+  reconnect(walletContext.config).then(() => {
+    prompt()
+  })
 
   let command = ''
 
@@ -120,10 +137,10 @@ export const terminal: Action = (node) => {
     }
   });
 
-  return {
-    destroy() {
+  $effect(() => {
+    return () => {
       console.log = originalLog
       console.error = originalError
-    },
-  }
+    }
+  })
 }
